@@ -1,5 +1,5 @@
 homepage: "https://addrevenue.io"
 documentation: "https://github.com/newnorthdigital/addrevenue-web-tag/blob/main/README.md"
 versions:
-  - sha: REPLACE_WITH_COMMIT_SHA
+  - sha: 6e02ef582e21724323baf10ef2e8c7f3898d225f
     changeNotes: "Initial release."
