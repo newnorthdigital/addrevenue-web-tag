@@ -1,5 +1,7 @@
 homepage: "https://addrevenue.io"
 documentation: "https://github.com/newnorthdigital/addrevenue-web-tag/blob/main/README.md"
 versions:
+  - sha: f26e3ec6b6410100a82a6aa5c4cb35e499625c12
+    changeNotes: "Embed vendor logo as 96x96 PNG thumbnail; add canonical BOM."
   - sha: 6e02ef582e21724323baf10ef2e8c7f3898d225f
     changeNotes: "Initial release."
