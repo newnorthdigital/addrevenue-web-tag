@@ -2,7 +2,7 @@ homepage: "https://addrevenue.io"
 documentation: "https://github.com/newnorthdigital/addrevenue-web-tag/blob/main/README.md"
 versions:
   - sha: 0523285052cb6e0793a5758012236286bf9d7e07
-    changeNotes: "Rename displayName to "AddRevenue Conversion Tracking by New North Digital" per Gallery third-party naming rule (tag name by company)."
+    changeNotes: "Rename displayName to 'AddRevenue Conversion Tracking by New North Digital' per Gallery third-party naming rule (tag name by company)."
   - sha: f26e3ec6b6410100a82a6aa5c4cb35e499625c12
     changeNotes: "Embed vendor logo as 96x96 PNG thumbnail; add canonical BOM."
   - sha: 6e02ef582e21724323baf10ef2e8c7f3898d225f
