@@ -12,7 +12,7 @@ ___INFO___
   "id": "cvt_temp_public_id",
   "version": 1,
   "securityGroups": [],
-  "displayName": "AddRevenue Conversion Tracking by New North Digital",
+  "displayName": "AddRevenue Tracking by New North Digital",
   "categories": ["AFFILIATE_MARKETING", "CONVERSIONS"],
   "brand": {
     "id": "brand_dummy",
