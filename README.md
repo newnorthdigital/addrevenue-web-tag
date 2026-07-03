@@ -10,6 +10,7 @@ A Google Tag Manager web tag template for [Addrevenue](https://addrevenue.io) af
 - **Variable and fixed commissions** - Pass order value for variable programs or custom commission amounts
 - **Coupon-based attribution** - Optional discount code field for coupon-based affiliate attribution
 - **Product-level data** - Optionally pass an array of product items
+- Built-in Consent Mode gate: follows GTM Consent Mode by default, firing only once `ad_storage` is granted and waiting for consent otherwise.
 
 ## Installation
 
@@ -47,6 +48,13 @@ A Google Tag Manager web tag template for [Addrevenue](https://addrevenue.io) af
    - **Products** - Optional, GTM variable returning an array of item objects
 4. Set the trigger to fire on your purchase/thank-you page
 
+### Consent
+
+Both tag types have a **Consent handling** field (under **Consent**):
+
+- **Follow GTM Consent Mode (ad_storage)** (default) - the tag fires only once `ad_storage` is granted, and waits via a consent listener if consent is not yet given. Consent that is never configured counts as granted, so sites without Consent Mode are unaffected.
+- **Fire immediately (I gate consent elsewhere)** - the tag runs right away, for when you gate consent with GTM's tag-level consent settings or a consent trigger.
+
 ## Field Reference
 
 | Field | Required | Description |
@@ -66,6 +74,7 @@ This template requires:
 
 - **Inject Script** - Loads `https://addrevenue.io/track.js`
 - **Access Globals** - Reads `ADDREVENUE_scriptLoaded` and executes `ADDREVENUE.sendEvent`
+- **Access Consent** - Reads `ad_storage` consent state for the built-in Consent Mode gate
 - **Logging** - Debug console logging (only in GTM Preview mode)
 
 ## Resources

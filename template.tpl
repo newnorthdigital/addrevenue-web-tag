@@ -99,6 +99,13 @@ ___TEMPLATE_PARAMETERS___
     "enablingConditions": [{"paramName": "actionType", "paramValue": "conversion", "type": "EQUALS"}]
   },
   {
+    "type": "GROUP", "name": "consentGroup", "displayName": "Consent", "groupStyle": "ZIPPY_OPEN",
+    "subParams": [ { "type": "SELECT", "name": "consentMode", "displayName": "Consent handling", "macrosInSelect": false,
+      "selectItems": [ { "value": "auto", "displayValue": "Follow GTM Consent Mode (ad_storage)" }, { "value": "off", "displayValue": "Fire immediately (I gate consent elsewhere)" } ],
+      "simpleValueType": true, "defaultValue": "auto",
+      "help": "\"Follow GTM Consent Mode\" (recommended) fires only once ad_storage is granted, and waits for consent if it is not yet given. \"Fire immediately\" runs right away, for when you gate consent with GTM's tag-level consent settings or a consent trigger. Consent that is never configured counts as granted, so sites without Consent Mode are unaffected." } ]
+  },
+  {
     "type": "GROUP",
     "name": "debugging",
     "displayName": "Debugging",
@@ -119,6 +126,8 @@ var copyFromWindow = require('copyFromWindow');
 var makeString = require('makeString');
 var makeNumber = require('makeNumber');
 var getType = require('getType');
+var isConsentGranted = require('isConsentGranted');
+var addConsentListener = require('addConsentListener');
 
 var enableDebug = data.debug;
 var debugLog = function(msg) {
@@ -130,58 +139,87 @@ var actionType = data.actionType;
 
 debugLog('Action: ' + actionType);
 
-if (actionType === 'base') {
-  injectScript(scriptUrl, function() {
-    debugLog('Base script loaded');
-    data.gtmOnSuccess();
-  }, function() {
-    debugLog('Base script failed to load');
-    data.gtmOnFailure();
-  }, 'addrevenue-base');
-
-} else if (actionType === 'conversion') {
-  var eventName = makeString(data.eventName || 'Purchase');
-  var eventData = {};
-
-  eventData.orderId = makeString(data.orderId);
-
-  if (data.orderValue) {
-    eventData.value = makeNumber(data.orderValue);
+// All firing logic is guarded so it runs at most once, even if the consent
+// listener fires more than once.
+var hasFired = false;
+var fire = function() {
+  if (hasFired) {
+    return;
   }
-  if (data.currency) {
-    eventData.currency = makeString(data.currency);
-  }
-  if (data.discountCodes) {
-    eventData.discountCodes = makeString(data.discountCodes);
-  }
-  if (data.commissionAmount) {
-    eventData.commissionAmount = makeNumber(data.commissionAmount);
-  }
-  if (data.products && getType(data.products) === 'array') {
-    eventData.products = data.products;
-  }
+  hasFired = true;
 
-  debugLog('Event: ' + eventName + ', Order: ' + eventData.orderId);
-
-  var loaded = copyFromWindow('ADDREVENUE_scriptLoaded');
-  if (loaded) {
-    debugLog('Script already loaded, sending event directly');
-    callInWindow('ADDREVENUE.sendEvent', eventName, eventData);
-    data.gtmOnSuccess();
-  } else {
+  if (actionType === 'base') {
     injectScript(scriptUrl, function() {
-      debugLog('Script loaded, sending event');
-      callInWindow('ADDREVENUE.sendEvent', eventName, eventData);
+      debugLog('Base script loaded');
       data.gtmOnSuccess();
     }, function() {
-      debugLog('Script failed to load');
+      debugLog('Base script failed to load');
       data.gtmOnFailure();
-    }, 'addrevenue-conversion');
-  }
+    }, 'addrevenue-base');
 
+  } else if (actionType === 'conversion') {
+    var eventName = makeString(data.eventName || 'Purchase');
+    var eventData = {};
+
+    eventData.orderId = makeString(data.orderId);
+
+    if (data.orderValue) {
+      eventData.value = makeNumber(data.orderValue);
+    }
+    if (data.currency) {
+      eventData.currency = makeString(data.currency);
+    }
+    if (data.discountCodes) {
+      eventData.discountCodes = makeString(data.discountCodes);
+    }
+    if (data.commissionAmount) {
+      eventData.commissionAmount = makeNumber(data.commissionAmount);
+    }
+    if (data.products && getType(data.products) === 'array') {
+      eventData.products = data.products;
+    }
+
+    debugLog('Event: ' + eventName + ', Order: ' + eventData.orderId);
+
+    var loaded = copyFromWindow('ADDREVENUE_scriptLoaded');
+    if (loaded) {
+      debugLog('Script already loaded, sending event directly');
+      callInWindow('ADDREVENUE.sendEvent', eventName, eventData);
+      data.gtmOnSuccess();
+    } else {
+      injectScript(scriptUrl, function() {
+        debugLog('Script loaded, sending event');
+        callInWindow('ADDREVENUE.sendEvent', eventName, eventData);
+        data.gtmOnSuccess();
+      }, function() {
+        debugLog('Script failed to load');
+        data.gtmOnFailure();
+      }, 'addrevenue-conversion');
+    }
+
+  } else {
+    debugLog('Unknown action type');
+    data.gtmOnFailure();
+  }
+};
+
+// Consent gate. Addrevenue's affiliate tracking uses ad_storage. In the default
+// "auto" mode the tag follows GTM Consent Mode: it fires once ad_storage is
+// granted and waits (via a consent listener) if it is not yet. Choose "Fire
+// immediately" to gate consent at the container level instead. Note:
+// isConsentGranted returns true when consent is not configured, so sites without
+// Consent Mode keep firing.
+var consentMode = data.consentMode || 'auto';
+
+if (consentMode === 'off' || isConsentGranted('ad_storage')) {
+  fire();
 } else {
-  debugLog('Unknown action type');
-  data.gtmOnFailure();
+  debugLog('Waiting for ad_storage consent');
+  addConsentListener('ad_storage', function(consentType, granted) {
+    if (granted) {
+      fire();
+    }
+  });
 }
 
 
@@ -334,7 +372,8 @@ ___WEB_PERMISSIONS___
       "isEditedByUser": true
     },
     "isRequired": true
-  }
+  },
+  { "instance": { "key": { "publicId": "access_consent" }, "param": [ { "key": "consentTypes", "value": { "type": 2, "listItem": [ { "type": 3, "mapKey": [ { "type": 1, "string": "consentType" }, { "type": 1, "string": "read" }, { "type": 1, "string": "write" } ], "mapValue": [ { "type": 1, "string": "ad_storage" }, { "type": 8, "boolean": true }, { "type": 8, "boolean": false } ] } ] } } ] }, "clientAnnotations": { "isEditedByUser": true }, "isRequired": true }
 ]
 
 
@@ -345,6 +384,7 @@ scenarios:
   code: |-
     var mockData = {
       actionType: 'base',
+      consentMode: 'off',
       debug: false
     };
 
@@ -367,6 +407,7 @@ scenarios:
       discountCodes: 'SUMMER10',
       commissionAmount: '',
       products: [],
+      consentMode: 'off',
       debug: false
     };
 
@@ -396,6 +437,7 @@ scenarios:
       currency: 'EUR',
       discountCodes: '',
       commissionAmount: '',
+      consentMode: 'off',
       debug: true
     };
 
@@ -416,6 +458,7 @@ scenarios:
   code: |-
     var mockData = {
       actionType: 'base',
+      consentMode: 'off',
       debug: false
     };
 
@@ -437,6 +480,7 @@ scenarios:
       currency: 'SEK',
       discountCodes: '',
       commissionAmount: '83.88',
+      consentMode: 'off',
       debug: false
     };
 
@@ -454,6 +498,100 @@ scenarios:
 
     runCode(mockData);
 
+    assertApi('gtmOnSuccess').wasCalled();
+
+- name: "Consent - auto mode fires when ad_storage is already granted"
+  code: |-
+    var mockData = {
+      actionType: 'base',
+      consentMode: 'auto',
+      debug: false
+    };
+
+    mock('isConsentGranted', function(type) {
+      return true;
+    });
+
+    mock('injectScript', function(url, success, failure, token) {
+      success();
+    });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertApi('addConsentListener').wasNotCalled();
+    assertApi('gtmOnSuccess').wasCalled();
+
+- name: "Consent - auto mode waits when ad_storage is denied"
+  code: |-
+    var mockData = {
+      actionType: 'base',
+      consentMode: 'auto',
+      debug: false
+    };
+
+    mock('isConsentGranted', function(type) {
+      return false;
+    });
+
+    mock('addConsentListener', function(type, callback) {});
+
+    mock('injectScript', function(url, success, failure, token) {
+      success();
+    });
+
+    runCode(mockData);
+
+    assertApi('addConsentListener').wasCalled();
+    assertApi('injectScript').wasNotCalled();
+
+- name: "Consent - fires once after ad_storage is granted via the listener"
+  code: |-
+    var mockData = {
+      actionType: 'base',
+      consentMode: 'auto',
+      debug: false
+    };
+
+    mock('isConsentGranted', function(type) {
+      return false;
+    });
+
+    mock('addConsentListener', function(type, callback) {
+      callback(type, true);
+    });
+
+    var injectCount = 0;
+    mock('injectScript', function(url, success, failure, token) {
+      injectCount++;
+      success();
+    });
+
+    runCode(mockData);
+
+    assertThat(injectCount).isEqualTo(1);
+    assertApi('gtmOnSuccess').wasCalled();
+
+- name: "Consent - fire immediately skips the consent check"
+  code: |-
+    var mockData = {
+      actionType: 'base',
+      consentMode: 'off',
+      debug: false
+    };
+
+    mock('isConsentGranted', function(type) {
+      return false;
+    });
+
+    mock('injectScript', function(url, success, failure, token) {
+      success();
+    });
+
+    runCode(mockData);
+
+    assertApi('injectScript').wasCalled();
+    assertApi('addConsentListener').wasNotCalled();
     assertApi('gtmOnSuccess').wasCalled();
 
 
