@@ -1,6 +1,8 @@
 homepage: "https://addrevenue.io"
 documentation: "https://github.com/newnorthdigital/addrevenue-web-tag/blob/main/README.md"
 versions:
+  - sha: 370a91962b7924c5d1987a5971f898086060c361
+    changeNotes: 'Add built-in GTM Consent Mode gate: fires only once consent is granted, with a Fire-immediately option.'
   - sha: 2aa8ca667d20e8907ca11d6778760a337b58aaa4
     changeNotes: 'NND-badge icon and shortened display name (by New North).'
   - sha: cedddefa452b59ce7ba94c1b9109825b42dd9087
